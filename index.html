@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Local Photo Gallery</title>
+<style>
+/* OLED dark theme — change these variables to re-theme everything */
+:root{
+  --bg:#000000;        /* true black page */
+  --panel:#000000;     /* bars / sidebar */
+  --panel2:#0f0f0f;    /* inputs, buttons, tiles */
+  --hover:#1a1a1a;
+  --line:#1f1f1f;
+  --text:#ededed;
+  --mute:#8b8b8b;
+  --accent:#ffffff;
+  --accent-bg:#1c1c1c;
+  --pop:#0a0a0a;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--text);font:13px/1.45 ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,"DejaVu Sans Mono","Liberation Mono",monospace}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:hover{background:var(--hover)}
+button[hidden]{display:none}
+input[type=text],input[type=number],select{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
+input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--accent)}
+input[type=range]{accent-color:var(--accent);width:100%}
+input[type=checkbox]{appearance:none;-webkit-appearance:none;width:16px;height:16px;margin:0;flex:none;cursor:pointer;display:inline-grid;place-content:center;background:#000;border:1.5px solid #6b6b6b;border-radius:4px}
+input[type=checkbox]:hover{border-color:#bdbdbd}
+input[type=checkbox]:checked{background:#fff;border-color:#fff}
+input[type=checkbox]:checked::after{content:"";width:9px;height:5px;border-left:2px solid #000;border-bottom:2px solid #000;transform:translate(0,-1px) rotate(-45deg)}
+
+#app{display:grid;grid-template-rows:auto 1fr;height:100%}
+#top{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+#top .sp{flex:1}
+button.icon{width:38px;height:38px;padding:0;display:grid;place-items:center;background:transparent;border-color:var(--line);color:var(--text)}
+button.icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+button.icon:hover{background:var(--hover)}
+button.icon[hidden]{display:none}
+button.icon.on,.menu.open>button.icon{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+
+/* dropdown menus */
+.menu{position:relative}
+.menu .pop{display:none;position:absolute;top:44px;left:0;min-width:230px;background:var(--pop);border:1px solid #262626;border-radius:12px;padding:8px;z-index:30;box-shadow:0 14px 40px #000c}
+.menu.right .pop{left:auto;right:0}
+.menu.open .pop{display:block}
+.pop .mi{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border:0;border-radius:8px;padding:9px 10px}
+.pop .mi:hover{background:var(--hover)}
+.pop .mi svg{width:17px;height:17px;fill:none;stroke:var(--mute);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.pop .mi.danger:hover{color:#ff8a8a}
+.pop .field{padding:8px 10px}
+.pop .field>label.t{display:block;color:var(--mute);font-size:12px;margin-bottom:6px}
+.pop .field select,.pop .field input[type=text],.pop .field input[type=number]{width:100%}
+.pop .field.chk label{display:flex;gap:8px;align-items:center;cursor:pointer}
+.pop .sep{height:1px;background:var(--line);margin:6px 2px}
+.pop .note{color:var(--mute);font-size:12px;padding:2px 10px 6px}
+.pop.w300{width:300px}.pop.w330{width:330px}
+#stText{padding:8px 10px;font-size:13px;color:var(--text)}
+#stText small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+
+#scanPill{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 4px 3px 12px;color:var(--mute);font-size:12.5px;white-space:nowrap}
+#scanPill[hidden]{display:none}
+#scanPill .bar{width:46px;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+#scanPill .bar i{display:block;height:100%;width:40%;background:var(--accent);animation:sl 1s linear infinite}
+#scanPill button{padding:3px 10px;border-radius:999px;font-size:12px}
+@keyframes sl{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
+
+#main{position:relative;display:grid;grid-template-columns:290px 1fr;min-height:0;transition:grid-template-columns .2s ease}
+#main.nosb{grid-template-columns:0px 1fr}
+#side{overflow:hidden;min-width:0;background:var(--panel)}
+.sbin{width:290px;height:100%;display:flex;flex-direction:column;border-right:1px solid var(--line)}
+.sbin .hd{padding:10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.sbin .hd .ttl{display:flex;align-items:center;justify-content:space-between;color:var(--mute);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.sbin .hd .ttl button.icon{width:30px;height:30px;border-color:transparent}
+.sbin .hd .ttl button.icon svg{width:17px;height:17px}
+#fq{width:100%}
+#tree{overflow:auto;flex:1;padding:6px 0}
+.row{display:flex;align-items:center;gap:4px;padding:5px 10px 5px 6px;cursor:pointer;white-space:nowrap}
+.row:hover{background:var(--hover)}
+.row.sel{background:var(--accent-bg);color:var(--accent)}
+.row .caret{width:16px;text-align:center;color:var(--mute);flex:none;user-select:none}
+.row .nm{overflow:hidden;text-overflow:ellipsis;flex:1}
+.row .par{color:var(--mute);font-size:12px}
+.row .ct{color:var(--mute);font-size:12px;flex:none}
+
+#gridwrap{position:relative;min-width:0;min-height:0}
+#grid{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden}
+#spacer{position:relative;width:100%}
+.cell{position:absolute;overflow:hidden;border-radius:6px;background:var(--panel2);cursor:pointer;outline:none}
+.cell img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .18s;pointer-events:none}
+.cell img.ok{opacity:1}
+.cell.bad::after{content:"unsupported";position:absolute;inset:0;display:grid;place-items:center;color:var(--mute);font-size:12px}
+.cell:hover{box-shadow:0 0 0 2px var(--accent) inset}
+.cell .tag{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 4px;font-size:11px;color:#fff;background:linear-gradient(transparent,#000c);opacity:0;transition:opacity .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.cell:hover .tag{opacity:1}
+#empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:30px;color:var(--text);font-size:22px;letter-spacing:.08em;pointer-events:none}
+#empty[hidden]{display:none}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1a0d12;border:1px solid #5a2a3a;color:#ffd7e2;padding:10px 16px;border-radius:10px;max-width:90vw;z-index:100;display:none}
+
+/* viewer */
+#viewer{position:fixed;inset:0;background:#000;z-index:50;display:none}
+#viewer.on{display:block}
+.vtop{position:absolute;top:0;left:0;right:0;display:flex;gap:8px;align-items:center;padding:10px 14px;background:linear-gradient(#000d,transparent);z-index:5;pointer-events:none}
+.vtop>*{pointer-events:auto}
+.vtop{transition:opacity .25s ease}
+.vtop.idle{opacity:0}
+.vtop.idle>*{pointer-events:none}
+.vtop .sp{flex:1}
+#vleft{display:flex;gap:12px;align-items:center;min-width:0}
+.vtop #vname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50vw}
+.vtop #vcount{color:var(--mute);white-space:nowrap}
+.vtop>button.icon,.vtop .menu>button.icon{background:#ffffff14;border-color:#ffffff1f}
+.vtop .menu.open>button.icon{background:var(--accent-bg);border-color:var(--accent)}
+#stage{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;touch-action:none}
+#stage.pan{cursor:move}
+#vimg{max-width:100%;max-height:100%;user-select:none;-webkit-user-drag:none;will-change:transform;pointer-events:none}
+#vmsg{position:absolute;inset:0;display:none;place-items:center;color:var(--mute);z-index:2;pointer-events:none}
+/* Info is a sub-page of the viewer options menu */
+#vInfo{display:none;padding:4px;font-size:13px;word-break:break-all}
+.pop.info #vMain{display:none}
+.pop.info #vInfo{display:block}
+.menu .pop.info{width:320px}
+#vInfo dl{margin:0 6px 6px}
+#vInfo dt{color:var(--mute);font-size:11.5px;margin-top:10px;text-transform:uppercase;letter-spacing:.04em}
+#vInfo dd{margin:2px 0 0}
+#vInfo .ph{display:flex;align-items:center;gap:8px;color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+#vInfo .ph span{flex:1}
+#vInfo button.icon{width:30px;height:30px}
+#vInfo button.icon svg{width:16px;height:16px}
+
+/* narrow screens: folders panel becomes an overlay */
+@media(max-width:800px){
+  #main,#main.nosb{grid-template-columns:1fr}
+  #side{position:absolute;left:0;top:0;bottom:0;width:290px;z-index:15}
+  #main.nosb #side{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <button class="icon" id="btnSide" title="Show / hide folders" aria-label="Show or hide folders">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+    </button>
+
+    <div class="menu" id="menuFolder">
+      <button class="icon" title="Folder" aria-label="Folder menu">
+        <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10.5v5M9.5 13h5"/></svg>
+      </button>
+      <div class="pop">
+        <button class="mi" id="btnAdd"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10.5v5M9.5 13h5"/></svg>Add folder</button>
+        <button class="mi" id="btnCompat" title="Use this if Chrome/Edge blocks the normal picker (for example on a whole drive root)"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Alternative picker</button>
+        <div class="sep"></div>
+        <button class="mi danger" id="btnClear"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>Clear all photos</button>
+      </div>
+    </div>
+
+    <div id="scanPill" hidden>
+      <span id="scanText">Scanning…</span><span class="bar"><i></i></span>
+      <button id="btnStop">Stop</button>
+    </div>
+
+    <span class="sp"></span>
+
+    <div class="menu right" id="menuFilter">
+      <button class="icon" title="Filter" aria-label="Filter menu">
+        <svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg>
+      </button>
+      <div class="pop w300">
+        <div id="stText">0 photos shown</div>
+        <div class="sep"></div>
+        <div class="field">
+          <label class="t" for="sort">Sort by</label>
+          <select id="sort">
+            <option value="dateDesc">Newest first</option>
+            <option value="dateAsc">Oldest first</option>
+            <option value="name">Name</option>
+            <option value="folder">Folder, then name</option>
+            <option value="sizeDesc">Largest first</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="t" for="zoom">Thumbnail size</label>
+          <input type="range" id="zoom" min="90" max="360" value="190">
+        </div>
+        <div class="field chk">
+          <label><input type="checkbox" id="subs" checked> Include subfolders</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="menu right" id="menuOptions">
+      <button class="icon" title="Options" aria-label="Options menu">
+        <svg viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+      </button>
+      <div class="pop w330">
+        <div class="field">
+          <label class="t" for="minkb">Hide images smaller than (KB)</label>
+          <input type="number" id="minkb" min="0" value="20">
+        </div>
+        <div class="sep"></div>
+        <div class="field">
+          <label class="t" for="skip">Scan settings — folders to skip (comma-separated, exact folder names)</label>
+          <input type="text" id="skip" value="$RECYCLE.BIN, System Volume Information, .git, node_modules, __MACOSX, .Trash, .thumbnails, .cache">
+        </div>
+        <div class="note">Applies to the next folder you add. Supported types: JPG, PNG, GIF, WebP, BMP, AVIF, SVG.</div>
+        <div class="sep"></div>
+        <div class="note" id="appVersion">Version 1.0.0</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="main" class="nosb">
+    <aside id="side"><div class="sbin">
+      <div class="hd">
+        <div class="ttl"><span>Folders</span>
+          <button class="icon" id="sideClose" title="Hide folders" aria-label="Hide folders"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+        </div>
+        <input type="text" id="fq" placeholder="Find a folder…">
+      </div>
+      <div id="tree"></div>
+    </div></aside>
+    <div id="gridwrap">
+      <div id="grid"><div id="spacer"></div></div>
+      <div id="empty">Photo Viewer</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<input type="file" id="fallback" webkitdirectory multiple hidden>
+
+<div id="viewer">
+  <div class="vtop" id="vtop">
+    <span id="vleft"><span id="vcount"></span><span id="vname"></span></span><span class="sp"></span>
+    <button class="icon" id="vstop" title="End slideshow" aria-label="End slideshow" hidden>
+      <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
+    </button>
+    <div class="menu right" id="menuViewer">
+      <button class="icon" title="Options" aria-label="Viewer options">
+        <svg viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+      </button>
+      <div class="pop" id="vpop">
+        <div id="vMain">
+          <button class="mi" id="vplay"><svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg><span id="vplayLbl">Slideshow</span></button>
+          <button class="mi" id="vinfo"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>Info</button>
+          <button class="mi" id="vfs"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Fullscreen</button>
+        </div>
+        <div id="vInfo">
+          <div class="ph">
+            <button class="icon" id="iBack" title="Back to options" aria-label="Back to options"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <span>Details</span>
+            <button class="icon" id="iCopy" title="Copy path" aria-label="Copy path"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg></button>
+          </div>
+          <dl>
+            <dt>File</dt><dd id="iName"></dd>
+            <dt>Folder</dt><dd id="iFolder"></dd>
+            <dt>Size</dt><dd id="iSize"></dd>
+            <dt>Dimensions</dt><dd id="iDims">—</dd>
+            <dt>Modified</dt><dd id="iDate"></dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+    <button class="icon" id="vclose" title="Close (Esc)" aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div id="stage"><img id="vimg" alt="" draggable="false"></div>
+  <div id="vmsg">This file can't be displayed by the browser.</div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+const EXT = new Set(['jpg','jpeg','jpe','jfif','png','gif','webp','bmp','avif','svg']);
+const $ = s => document.querySelector(s);
+const coll = new Intl.Collator(undefined, {numeric:true, sensitivity:'base'});
+const GAP = 6;
+
+const S = {
+  items: [], view: [], folder: null, subs: true, minKB: 20, q: '', fq: '',
+  sort: 'dateDesc', size: 190, scanning: false, stop: false,
+  dirs: 0, errors: 0, dirty: false, expanded: new Set(), roots: new Set()
+};
+
+const fmtN = n => n.toLocaleString();
+const fmtSize = b => b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(0) + ' KB' :
+  b < 1073741824 ? (b/1048576).toFixed(1) + ' MB' : (b/1073741824).toFixed(2) + ' GB';
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+function toast(msg, ms = 7000) {
+  const t = $('#toast'); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', ms);
+}
+
+/* ---------------------------------------------------------------- scanning */
+function getSkip() {
+  return new Set($('#skip').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+}
+function uniqueRoot(name) {
+  let n = name || 'Drive', k = 2;
+  while (S.roots.has(n)) n = (name || 'Drive') + ' (' + k++ + ')';
+  S.roots.add(n); S.expanded.add(n);
+  return n;
+}
+function beginScan() {
+  S.scanning = true; S.stop = false; S.dirs = 0; S.errors = 0;
+  $('#scanPill').hidden = false;
+  $('#empty').hidden = true;
+  startLiveRefresh();
+}
+function endScan() {
+  S.scanning = false;
+  $('#scanPill').hidden = true;
+  stopLiveRefresh();
+  refresh();
+}
+
+async function addFolder() {
+  if (!window.showDirectoryPicker) { $('#fallback').click(); return; }
+  let dir;
+  try { dir = await window.showDirectoryPicker({mode: 'read'}); }
+  catch (e) {
+    if (e.name === 'AbortError') return;
+    toast('The browser would not open that folder (' + (e.message || e.name) + '). If it is a whole drive, try "Alternative picker", or add the drive\'s top-level folders one at a time.');
+    return;
+  }
+  const root = uniqueRoot(dir.name);
+  const skip = getSkip();
+  beginScan();
+  let pending = [];
+
+  async function walk(d, path) {
+    if (S.stop) return;
+    S.dirs++;
+    try {
+      for await (const [name, h] of d.entries()) {
+        if (S.stop) return;
+        if (h.kind === 'directory') {
+          if (skip.has(name.toLowerCase())) continue;
+          await walk(h, path + '/' + name);
+        } else {
+          const dot = name.lastIndexOf('.');
+          if (dot < 1 || name.startsWith('._')) continue;
+          if (!EXT.has(name.slice(dot + 1).toLowerCase())) continue;
+          pending.push(h.getFile().then(f => {
+            S.items.push({name, folder: path, handle: h, size: f.size, mtime: f.lastModified});
+          }).catch(() => { S.errors++; }));
+          if (pending.length >= 24) { await Promise.all(pending); pending = []; }
+        }
+      }
+    } catch (e) { S.errors++; }
+  }
+
+  try { await walk(dir, root); await Promise.all(pending); }
+  finally { endScan(); }
+}
+
+$('#fallback').addEventListener('change', async () => {
+  const files = Array.from($('#fallback').files);
+  $('#fallback').value = '';
+  if (!files.length) return;
+  const skip = getSkip();
+  const firstRel = files[0].webkitRelativePath || files[0].name;
+  const root = uniqueRoot(firstRel.split('/')[0]);
+  beginScan();
+  try {
+    for (let i = 0; i < files.length; i++) {
+      if (S.stop) break;
+      const f = files[i], name = f.name, dot = name.lastIndexOf('.');
+      if (dot > 0 && !name.startsWith('._') && EXT.has(name.slice(dot + 1).toLowerCase())) {
+        const parts = (f.webkitRelativePath || name).split('/'); parts.pop();
+        if (!parts.some(p => skip.has(p.toLowerCase()))) {
+          parts[0] = root;
+          S.items.push({name, folder: parts.join('/'), file: f, size: f.size, mtime: f.lastModified});
+        }
+      }
+      if (i % 5000 === 0) { S.dirs = i; await tick(); }
+    }
+  } finally { endScan(); }
+});
+
+let liveTimer = 0;
+function startLiveRefresh() {
+  stopLiveRefresh();
+  let last = -1;
+  liveTimer = setInterval(() => {
+    if (S.items.length !== last) {
+      last = S.items.length;
+      if ($('#grid').scrollTop < 50) refresh(); else renderStatus();
+    } else renderStatus();
+  }, 900);
+}
+function stopLiveRefresh() { clearInterval(liveTimer); liveTimer = 0; }
+
+/* ----------------------------------------------------------- filter + sort */
+const SORTS = {
+  dateDesc: (a, b) => b.mtime - a.mtime,
+  dateAsc:  (a, b) => a.mtime - b.mtime,
+  name:     (a, b) => coll.compare(a.name, b.name),
+  folder:   (a, b) => coll.compare(a.folder, b.folder) || coll.compare(a.name, b.name),
+  sizeDesc: (a, b) => b.size - a.size
+};
+function passes(it, min, q) {
+  if (it.size < min) return false;
+  if (!q) return true;
+  return (it.lc || (it.lc = (it.folder + '/' + it.name).toLowerCase())).includes(q);
+}
+function computeView() {
+  const min = S.minKB * 1024, q = S.q.trim().toLowerCase(), f = S.folder, pre = f ? f + '/' : '';
+  const v = [];
+  for (const it of S.items) {
+    if (!passes(it, min, q)) continue;
+    if (f) {
+      if (S.subs) { if (it.folder !== f && !it.folder.startsWith(pre)) continue; }
+      else if (it.folder !== f) continue;
+    }
+    v.push(it);
+  }
+  v.sort(SORTS[S.sort]);
+  return v;
+}
+
+function refresh() {
+  if (V.open) { S.dirty = true; return; }
+  S.dirty = false;
+  S.view = computeView();
+  layout();
+  renderSidebar();
+  renderStatus();
+  $('#empty').hidden = S.items.length > 0 || S.scanning;
+}
+
+function renderStatus() {
+  let t = fmtN(S.view.length) + ' photos shown';
+  if (S.view.length !== S.items.length) t += ' of ' + fmtN(S.items.length) + ' found';
+  const el = $('#stText');
+  el.textContent = t;
+  if (S.errors) { const s = document.createElement('small'); s.textContent = S.errors + ' unreadable item(s) skipped'; el.appendChild(s); }
+  if (S.scanning) $('#scanText').textContent = 'Scanning… ' + fmtN(S.items.length) + ' found';
+}
+
+/* ------------------------------------------------------------------ sidebar */
+function renderSidebar() {
+  const min = S.minKB * 1024, q = S.q.trim().toLowerCase();
+  const direct = new Map();
+  let total = 0;
+  for (const it of S.items) {
+    if (!passes(it, min, q)) continue;
+    direct.set(it.folder, (direct.get(it.folder) || 0) + 1); total++;
+  }
+  const cum = new Map();
+  for (const [f, n] of direct) {
+    const parts = f.split('/'); let p = '';
+    for (let k = 0; k < parts.length; k++) {
+      p = k ? p + '/' + parts[k] : parts[k];
+      cum.set(p, (cum.get(p) || 0) + n);
+    }
+  }
+  const nodes = new Map();
+  for (const [p, c] of cum) nodes.set(p, {path: p, name: p.slice(p.lastIndexOf('/') + 1), count: c, kids: []});
+  const roots = [];
+  for (const nd of nodes.values()) {
+    const i = nd.path.lastIndexOf('/');
+    if (i < 0) roots.push(nd); else nodes.get(nd.path.slice(0, i)).kids.push(nd);
+  }
+  const byName = (a, b) => coll.compare(a.name, b.name);
+  const rows = [];
+  const fq = S.fq.trim().toLowerCase();
+  if (fq) {
+    for (const nd of nodes.values()) if (nd.path.toLowerCase().includes(fq)) rows.push({nd, depth: 0, flat: true});
+    rows.sort((a, b) => coll.compare(a.nd.path, b.nd.path));
+    rows.length = Math.min(rows.length, 600);
+  } else {
+    roots.sort(byName);
+    const dfs = (nd, depth) => {
+      rows.push({nd, depth});
+      if (nd.kids.length && S.expanded.has(nd.path)) { nd.kids.sort(byName); for (const k of nd.kids) dfs(k, depth + 1); }
+    };
+    for (const r of roots) dfs(r, 0);
+  }
+  const frag = document.createDocumentFragment();
+  const mk = (path, label, count, depth, hasKids, open, parent) => {
+    const d = document.createElement('div');
+    d.className = 'row' + ((S.folder === path || (!S.folder && path === '')) ? ' sel' : '');
+    d.dataset.path = path; d.style.paddingLeft = (6 + depth * 14) + 'px';
+    const c = document.createElement('span'); c.className = 'caret'; c.textContent = hasKids ? (open ? '▾' : '▸') : '';
+    if (hasKids) c.dataset.caret = '1';
+    const n = document.createElement('span'); n.className = 'nm'; n.textContent = label; n.title = path || label;
+    if (parent) { const p = document.createElement('span'); p.className = 'par'; p.textContent = ' ' + parent; n.appendChild(p); }
+    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = fmtN(count);
+    d.append(c, n, ct); frag.appendChild(d);
+  };
+  mk('', 'All photos', total, 0, false, false);
+  for (const r of rows) {
+    const nd = r.nd;
+    if (r.flat) {
+      const i = nd.path.lastIndexOf('/');
+      mk(nd.path, nd.name, nd.count, 0, false, false, i > 0 ? nd.path.slice(0, i) : '');
+    } else mk(nd.path, nd.name, nd.count, r.depth, nd.kids.length > 0, S.expanded.has(nd.path));
+  }
+  const tree = $('#tree'), st = tree.scrollTop;
+  tree.replaceChildren(frag); tree.scrollTop = st;
+}
+$('#tree').addEventListener('click', e => {
+  const row = e.target.closest('.row'); if (!row) return;
+  const path = row.dataset.path;
+  if (e.target.dataset.caret) {
+    if (S.expanded.has(path)) S.expanded.delete(path); else S.expanded.add(path);
+    renderSidebar(); return;
+  }
+  S.folder = path === '' || path === S.folder ? null : path;
+  $('#grid').scrollTop = 0;
+  refresh();
+});
+
+/* ------------------------------------------------- virtualised thumbnail grid */
+const grid = $('#grid'), spacer = $('#spacer');
+const live = new Map();   // index -> element
+let cols = 1, cell = 190, rowH = 196;
+
+function clearLive() {
+  for (const el of live.values()) { if (el._it) { el._it._want = false; el._it._el = null; } el.remove(); }
+  live.clear();
+}
+function layout() {
+  clearLive();
+  const w = grid.clientWidth - GAP * 2;
+  cols = Math.max(1, Math.floor((w + GAP) / (S.size + GAP)));
+  cell = (w - GAP * (cols - 1)) / cols;
+  rowH = cell + GAP;
+  spacer.style.height = (Math.ceil(S.view.length / cols) * rowH + GAP) + 'px';
+  render();
+}
+let rafId = 0;
+grid.addEventListener('scroll', () => { if (!rafId) rafId = requestAnimationFrame(() => { rafId = 0; render(); }); });
+new ResizeObserver(() => { if (grid.clientWidth) layout(); }).observe(grid);
+
+function render() {
+  const n = S.view.length;
+  const top = grid.scrollTop, h = grid.clientHeight;
+  const r0 = Math.max(0, Math.floor((top - GAP) / rowH) - 2);
+  const r1 = Math.ceil((top + h) / rowH) + 2;
+  const i0 = r0 * cols, i1 = Math.min(n, r1 * cols);
+  for (const [i, el] of live) {
+    if (i < i0 || i >= i1) { el._it._want = false; el._it._el = null; el.remove(); live.delete(i); }
+  }
+  const frag = document.createDocumentFragment();
+  for (let i = i0; i < i1; i++) {
+    if (live.has(i)) continue;
+    const it = S.view[i];
+    const el = document.createElement('div');
+    el.className = 'cell' + (it.bad ? ' bad' : '');
+    el.style.width = el.style.height = cell + 'px';
+    el.style.left = (GAP + (i % cols) * (cell + GAP)) + 'px';
+    el.style.top = (GAP + Math.floor(i / cols) * rowH) + 'px';
+    el.dataset.i = i;
+    const img = document.createElement('img'); img.alt = ''; img.draggable = false;
+    img.onload = () => img.classList.add('ok');
+    const tag = document.createElement('div'); tag.className = 'tag'; tag.textContent = it.name;
+    el.append(img, tag);
+    el._it = it; el._img = img; it._el = el;
+    if (it.thumb) { img.src = it.thumb; touchThumb(it); }
+    else if (!it.bad) want(it);
+    live.set(i, el); frag.appendChild(el);
+  }
+  spacer.appendChild(frag);
+}
+spacer.addEventListener('click', e => {
+  const c = e.target.closest('.cell'); if (c) openViewer(+c.dataset.i);
+});
+function scrollToIndex(i) {
+  if (i < 0) return;
+  const rowTop = Math.floor(i / cols) * rowH, h = grid.clientHeight;
+  if (rowTop < grid.scrollTop || rowTop + rowH > grid.scrollTop + h) grid.scrollTop = Math.max(0, rowTop - (h - rowH) / 2);
+  render();
+}
+
+/* ---------------------------------------------------------------- thumbnails */
+const THUMB = 320, DECODE_W = 480, THUMB_CAP = 2500;
+const tq = []; let tActive = 0; const thumbList = [];
+const getFile = it => it.file ? Promise.resolve(it.file) : it.handle.getFile();
+
+function want(it) { it._want = true; tq.push(it); pump(); }
+function pump() {
+  while (tActive < 6 && tq.length) {
+    const it = tq.pop();
+    if (!it._want || it.thumb || it.bad || it._busy) continue;
+    it._busy = true; tActive++;
+    makeThumb(it).then(url => { it.thumb = url; thumbList.push(it); trim(); })
+      .catch(() => { it.bad = true; })
+      .finally(() => { it._busy = false; tActive--; paint(it); pump(); });
+  }
+}
+function touchThumb(it) { const i = thumbList.lastIndexOf(it); if (i >= 0 && i < thumbList.length - 400) { thumbList.splice(i, 1); thumbList.push(it); } }
+function trim() {
+  let guard = 60;
+  while (thumbList.length > THUMB_CAP && guard--) {
+    const old = thumbList.shift();
+    if (old._el) { thumbList.push(old); continue; }
+    URL.revokeObjectURL(old.thumb); old.thumb = null;
+  }
+}
+function paint(it) {
+  const el = it._el; if (!el) return;
+  if (it.thumb) el._img.src = it.thumb; else if (it.bad) el.classList.add('bad');
+}
+async function makeThumb(it) {
+  const f = await getFile(it);
+  let src, w, h, cleanup = null;
+  try {
+    const bmp = await createImageBitmap(f, {resizeWidth: DECODE_W, resizeQuality: 'medium'});
+    src = bmp; w = bmp.width; h = bmp.height; cleanup = () => bmp.close();
+  } catch (_) {
+    const url = URL.createObjectURL(f);
+    cleanup = () => URL.revokeObjectURL(url);
+    const img = new Image(); img.src = url;
+    try { await img.decode(); } catch (e) { cleanup(); throw e; }
+    src = img; w = img.naturalWidth; h = img.naturalHeight;
+    if (!w || !h) { cleanup(); throw new Error('no size'); }
+  }
+  try {
+    const c = document.createElement('canvas'); c.width = c.height = THUMB;
+    const ctx = c.getContext('2d');
+    const sc = Math.max(THUMB / w, THUMB / h), dw = w * sc, dh = h * sc;
+    ctx.fillStyle = '#0f0f0f'; ctx.fillRect(0, 0, THUMB, THUMB);
+    ctx.drawImage(src, (THUMB - dw) / 2, (THUMB - dh) / 2, dw, dh);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
+    if (!blob) throw new Error('encode failed');
+    return URL.createObjectURL(blob);
+  } finally { cleanup && cleanup(); }
+}
+
+/* -------------------------------------------------------------------- viewer */
+const V = {open: false, i: 0, it: null, scale: 1, tx: 0, ty: 0, token: 0, timer: 0};
+const vimg = $('#vimg'), stage = $('#stage');
+const fullList = new Set();
+
+function fullUrl(it) {
+  if (it._full) return Promise.resolve(it._full);
+  if (it._fp) return it._fp;
+  it._fp = getFile(it).then(f => { it._full = URL.createObjectURL(f); fullList.add(it); return it._full; })
+    .finally(() => { it._fp = null; });
+  return it._fp;
+}
+function evict(keep) {
+  for (const it of Array.from(fullList)) {
+    if (keep.has(it)) continue;
+    if (it._full) { URL.revokeObjectURL(it._full); it._full = null; }
+    fullList.delete(it);
+  }
+}
+/* keep the picture covering the view: never pan past its own edges */
+function clampT() {
+  const sw = vimg.clientWidth * V.scale, sh = vimg.clientHeight * V.scale;
+  const mx = Math.max(0, (sw - stage.clientWidth) / 2), my = Math.max(0, (sh - stage.clientHeight) / 2);
+  V.tx = Math.max(-mx, Math.min(mx, V.tx));
+  V.ty = Math.max(-my, Math.min(my, V.ty));
+}
+function applyT() {
+  clampT();
+  vimg.style.transform = `translate(${V.tx}px,${V.ty}px) scale(${V.scale})`;
+}
+window.addEventListener('resize', () => { if (V.open) applyT(); });
+function resetZoom() { V.scale = 1; V.tx = V.ty = 0; applyT(); }
+
+async function show(i) {
+  const n = S.view.length; if (!n) return closeViewer();
+  i = Math.max(0, Math.min(n - 1, i));
+  V.i = i; V.it = S.view[i];
+  const tok = ++V.token, it = V.it;
+  resetZoom();
+  $('#vcount').textContent = fmtN(i + 1) + ' / ' + fmtN(n);
+  $('#vname').textContent = it.name;
+  $('#iName').textContent = it.name; $('#iFolder').textContent = it.folder;
+  $('#iSize').textContent = fmtSize(it.size); $('#iDims').textContent = '—';
+  $('#iDate').textContent = new Date(it.mtime).toLocaleString();
+  $('#vmsg').style.display = 'none';
+  try {
+    const url = await fullUrl(it);
+    if (tok !== V.token) return;
+    vimg.style.visibility = 'visible'; vimg.src = url;
+  } catch (e) {
+    if (tok !== V.token) return;
+    vimg.removeAttribute('src'); $('#vmsg').style.display = 'grid';
+  }
+  const keep = new Set([it]);
+  for (const d of [-2, -1, 1, 2]) { const j = V.i + d; if (j >= 0 && j < n) keep.add(S.view[j]); }
+  evict(keep);
+  for (const d of [1, -1]) { const j = V.i + d; if (j >= 0 && j < n) fullUrl(S.view[j]).catch(() => {}); }
+}
+vimg.addEventListener('load', () => { $('#iDims').textContent = vimg.naturalWidth + ' × ' + vimg.naturalHeight + ' px'; });
+vimg.addEventListener('error', () => { if (vimg.getAttribute('src')) $('#vmsg').style.display = 'grid'; });
+
+function openViewer(i) { closeMenus(); lastM = null; nearTop = false; barShow(); barArm(); V.open = true; $('#viewer').classList.add('on'); show(i); }
+function closeViewer() {
+  if (!V.open) return;
+  stopSlide();
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  V.open = false; V.token++; $('#viewer').classList.remove('on');
+  vimg.removeAttribute('src'); evict(new Set());
+  const idx = V.i;
+  if (S.dirty) refresh();
+  scrollToIndex(idx);
+}
+const next = () => show(V.i + 1), prev = () => show(V.i - 1);
+$('#vclose').onclick = closeViewer;
+$('#vinfo').onclick = () => $('#vpop').classList.add('info');
+$('#iBack').onclick = () => $('#vpop').classList.remove('info');
+$('#vfs').onclick = () => { closeMenus(); document.fullscreenElement ? document.exitFullscreen() : $('#viewer').requestFullscreen().catch(() => {}); };
+$('#iCopy').onclick = async () => {
+  const it = V.it; if (!it) return;
+  try { await navigator.clipboard.writeText(it.folder + '/' + it.name); toast('Path copied', 1500); } catch (_) {}
+};
+function startSlide() {
+  $('#vplayLbl').textContent = 'Stop slideshow';
+  $('#vstop').hidden = false;
+  V.timer = setInterval(() => show(V.i + 1 >= S.view.length ? 0 : V.i + 1), 3000);
+}
+function stopSlide() { clearInterval(V.timer); V.timer = 0; $('#vplayLbl').textContent = 'Slideshow'; $('#vstop').hidden = true; }
+$('#vstop').onclick = stopSlide;
+$('#vplay').onclick = () => { closeMenus(); V.timer ? stopSlide() : startSlide(); };
+
+function zoomAt(cx, cy, f) {
+  const r = stage.getBoundingClientRect();
+  const px = cx - (r.left + r.width / 2), py = cy - (r.top + r.height / 2);
+  const ns = Math.max(1, Math.min(12, V.scale * f));
+  if (ns === 1) { V.tx = V.ty = 0; }
+  else { V.tx = px - (px - V.tx) * (ns / V.scale); V.ty = py - (py - V.ty) * (ns / V.scale); }
+  V.scale = ns; applyT();
+}
+/* wheel = zoom toward the mouse pointer */
+$('#viewer').addEventListener('wheel', e => {
+  if (e.target.closest('.pop')) return;
+  e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.18 : 1 / 1.18);
+}, {passive: false});
+stage.addEventListener('dblclick', e => { if (V.scale > 1) resetZoom(); else zoomAt(e.clientX, e.clientY, 2.5); });
+
+/* hold SHIFT and move the mouse to pan (no button needed, so the browser never drags the picture) */
+let lastM = null, barT = 0, nearTop = false;
+const vtopEl = $('#vtop');
+
+/* top bar (name, counter, options, close) fades out after a moment; move the mouse near the top to bring it back */
+function barShow() { vtopEl.classList.remove('idle'); clearTimeout(barT); barT = 0; }
+function barArm() {
+  if (barT) return;
+  barT = setTimeout(() => {
+    barT = 0;
+    if (!V.open) return;
+    if (nearTop || $('#menuViewer').classList.contains('open')) { barArm(); return; }
+    vtopEl.classList.add('idle');
+  }, 750);
+}
+$('#viewer').addEventListener('mousemove', e => {
+  if (e.shiftKey && V.scale > 1 && lastM) { V.tx += e.clientX - lastM.x; V.ty += e.clientY - lastM.y; applyT(); }
+  lastM = {x: e.clientX, y: e.clientY};
+  nearTop = e.clientY < 80;
+  if (nearTop) barShow(); else if (!vtopEl.classList.contains('idle')) barArm();
+});
+const updPan = e => stage.classList.toggle('pan', V.open && e.shiftKey && V.scale > 1);
+document.addEventListener('keydown', updPan);
+document.addEventListener('keyup', updPan);
+window.addEventListener('blur', () => stage.classList.remove('pan'));
+
+/* touch screens: drag to pan when zoomed, swipe to change photo */
+let tdrag = null;
+stage.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  barShow(); barArm();   /* touch screens: any tap brings the bar back */
+  stage.setPointerCapture(e.pointerId);
+  tdrag = {x: e.clientX, y: e.clientY, tx: V.tx, ty: V.ty};
+});
+stage.addEventListener('pointermove', e => {
+  if (!tdrag || V.scale <= 1) return;
+  V.tx = tdrag.tx + (e.clientX - tdrag.x); V.ty = tdrag.ty + (e.clientY - tdrag.y); applyT();
+});
+stage.addEventListener('pointerup', e => {
+  if (!tdrag) return;
+  const dx = e.clientX - tdrag.x, dy = e.clientY - tdrag.y;
+  if (V.scale === 1 && Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) { dx < 0 ? next() : prev(); }
+  tdrag = null;
+});
+stage.addEventListener('pointercancel', () => { tdrag = null; });
+
+document.addEventListener('keydown', e => {
+  if (!V.open) { if (e.key === 'Escape') closeMenus(); return; }
+  const k = e.key;
+  if (k === 'Escape') { if (!document.fullscreenElement) closeViewer(); }
+  else if (k === 'ArrowRight') next();
+  else if (k === 'ArrowLeft') prev();
+  else if (k === 'Home') show(0);
+  else if (k === 'End') show(S.view.length - 1);
+  else if (k === '+' || k === '=') zoomAt(innerWidth / 2, innerHeight / 2, 1.3);
+  else if (k === '-') zoomAt(innerWidth / 2, innerHeight / 2, 1 / 1.3);
+  else if (k === '0') resetZoom();
+  else if (k === 'i' || k === 'I') {
+    const mv = $('#menuViewer'), vp = $('#vpop');
+    const showing = mv.classList.contains('open') && vp.classList.contains('info');
+    closeMenus();
+    if (!showing) { mv.classList.add('open'); vp.classList.add('info'); }
+  }
+  else if (k === 'p' || k === 'P' || k === ' ') { e.preventDefault(); V.timer ? stopSlide() : startSlide(); }
+  else if (k === 'f' || k === 'F') $('#vfs').click();
+  else return;
+  if (k.startsWith('Arrow') || k === ' ') e.preventDefault();
+});
+
+/* ------------------------------------------------------------- icon menus */
+const menus = Array.from(document.querySelectorAll('.menu'));
+function closeMenus(except) {
+  for (const m of menus) if (m !== except) m.classList.remove('open');
+  if (!$('#menuViewer').classList.contains('open')) $('#vpop').classList.remove('info');  /* Info always reopens on the main options page */
+}
+for (const m of menus) {
+  m.querySelector('button.icon').addEventListener('click', e => {
+    e.stopPropagation();
+    const willOpen = !m.classList.contains('open');
+    closeMenus(); m.classList.toggle('open', willOpen);
+  });
+  m.querySelector('.pop').addEventListener('click', e => e.stopPropagation());
+}
+document.addEventListener('click', () => closeMenus());
+
+/* ------------------------------------------------------ folders side panel */
+const mainEl = $('#main');
+function setSide(open) {
+  mainEl.classList.toggle('nosb', !open);
+  $('#btnSide').classList.toggle('on', open);
+}
+$('#btnSide').onclick = e => { e.stopPropagation(); closeMenus(); setSide(mainEl.classList.contains('nosb')); };
+$('#sideClose').onclick = () => setSide(false);
+setSide(false);   /* folders panel starts closed */
+
+/* ------------------------------------------------------------------ controls */
+$('#btnAdd').onclick = () => { closeMenus(); addFolder(); };
+$('#btnCompat').onclick = () => { closeMenus(); $('#fallback').click(); };
+$('#btnStop').onclick = () => { S.stop = true; };
+$('#btnClear').onclick = () => {
+  closeMenus();
+  if (S.scanning) S.stop = true;
+  clearLive();
+  for (const it of S.items) { if (it.thumb) URL.revokeObjectURL(it.thumb); if (it._full) URL.revokeObjectURL(it._full); }
+  S.items = []; S.view = []; S.folder = null; S.roots.clear(); S.expanded.clear(); thumbList.length = 0; tq.length = 0;
+  refresh();
+};
+let debT = 0;
+const deb = fn => { clearTimeout(debT); debT = setTimeout(fn, 200); };
+$('#fq').addEventListener('input', e => { S.fq = e.target.value; deb(renderSidebar); });
+$('#sort').addEventListener('change', e => { S.sort = e.target.value; grid.scrollTop = 0; refresh(); });
+$('#subs').addEventListener('change', e => { S.subs = e.target.checked; grid.scrollTop = 0; refresh(); });
+$('#minkb').addEventListener('input', e => { S.minKB = Math.max(0, +e.target.value || 0); deb(() => { grid.scrollTop = 0; refresh(); }); });
+$('#zoom').addEventListener('input', e => { S.size = +e.target.value; layout(); });
+
+if (!window.showDirectoryPicker) {
+  $('#btnCompat').hidden = true;
+  toast('This browser has no folder picker API, so the compatibility picker will be used. Chrome or Edge give the best experience.', 9000);
+}
+refresh();
+})();
+</script>
+</body>
+</html>
