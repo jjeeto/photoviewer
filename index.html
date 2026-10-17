@@ -5,25 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Local Photo Gallery</title>
 <style>
-/* OLED dark theme — change these variables to re-theme everything */
-:root{
-  --bg:#000000;        /* true black page */
-  --panel:#000000;     /* bars / sidebar */
-  --panel2:#0f0f0f;    /* inputs, buttons, tiles */
-  --hover:#1a1a1a;
-  --line:#1f1f1f;
-  --text:#ededed;
-  --mute:#8b8b8b;
-  --accent:#ffffff;
-  --accent-bg:#1c1c1c;
-  --pop:#0a0a0a;
-}
+:root{--bg:#000;--panel:#000;--panel2:#0f0f0f;--hover:#1a1a1a;--line:#1f1f1f;--text:#ededed;--mute:#8b8b8b;--accent:#fff;--accent-bg:#1c1c1c;--pop:#0a0a0a}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--text);font:13px/1.45 ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,"DejaVu Sans Mono","Liberation Mono",monospace}
 button,select,input{font:inherit;color:inherit}
 button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
 button:hover{background:var(--hover)}
-button[hidden]{display:none}
 input[type=text],input[type=number],select{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
 input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--accent)}
 input[type=range]{accent-color:var(--accent);width:100%}
@@ -38,10 +26,8 @@ input[type=checkbox]:checked::after{content:"";width:9px;height:5px;border-left:
 button.icon{width:38px;height:38px;padding:0;display:grid;place-items:center;background:transparent;border-color:var(--line);color:var(--text)}
 button.icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 button.icon:hover{background:var(--hover)}
-button.icon[hidden]{display:none}
 button.icon.on,.menu.open>button.icon{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
 
-/* dropdown menus */
 .menu{position:relative}
 .menu .pop{display:none;position:absolute;top:44px;left:0;min-width:230px;background:var(--pop);border:1px solid #262626;border-radius:12px;padding:8px;z-index:30;box-shadow:0 14px 40px #000c}
 .menu.right .pop{left:auto;right:0}
@@ -54,27 +40,28 @@ button.icon.on,.menu.open>button.icon{background:var(--accent-bg);border-color:v
 .pop .field>label.t{display:block;color:var(--mute);font-size:12px;margin-bottom:6px}
 .pop .field select,.pop .field input[type=text],.pop .field input[type=number]{width:100%}
 .pop .field.chk label{display:flex;gap:8px;align-items:center;cursor:pointer}
+.rng{position:relative}
+#zoomTip{position:absolute;bottom:100%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:12px;white-space:nowrap;pointer-events:none}
 .pop .sep{height:1px;background:var(--line);margin:6px 2px}
 .pop .note{color:var(--mute);font-size:12px;padding:2px 10px 6px}
 .pop.w300{width:300px}.pop.w330{width:330px}
-#stText{padding:8px 10px;font-size:13px;color:var(--text)}
+#stText{padding:8px 10px}
 #stText small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
 
 #scanPill{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 4px 3px 12px;color:var(--mute);font-size:12.5px;white-space:nowrap}
-#scanPill[hidden]{display:none}
 #scanPill .bar{width:46px;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
 #scanPill .bar i{display:block;height:100%;width:40%;background:var(--accent);animation:sl 1s linear infinite}
 #scanPill button{padding:3px 10px;border-radius:999px;font-size:12px}
 @keyframes sl{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
 
 #main{position:relative;display:grid;grid-template-columns:290px 1fr;min-height:0;transition:grid-template-columns .2s ease}
-#main.nosb{grid-template-columns:0px 1fr}
+#main.nosb{grid-template-columns:0 1fr}
 #side{overflow:hidden;min-width:0;background:var(--panel)}
 .sbin{width:290px;height:100%;display:flex;flex-direction:column;border-right:1px solid var(--line)}
 .sbin .hd{padding:10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
-.sbin .hd .ttl{display:flex;align-items:center;justify-content:space-between;color:var(--mute);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
-.sbin .hd .ttl button.icon{width:30px;height:30px;border-color:transparent}
-.sbin .hd .ttl button.icon svg{width:17px;height:17px}
+.sbin .ttl{display:flex;align-items:center;justify-content:space-between;color:var(--mute);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.sbin .ttl button.icon{width:30px;height:30px;border-color:transparent}
+.sbin .ttl button.icon svg{width:17px;height:17px}
 #fq{width:100%}
 #tree{overflow:auto;flex:1;padding:6px 0}
 .row{display:flex;align-items:center;gap:4px;padding:5px 10px 5px 6px;cursor:pointer;white-space:nowrap}
@@ -82,43 +69,41 @@ button.icon.on,.menu.open>button.icon{background:var(--accent-bg);border-color:v
 .row.sel{background:var(--accent-bg);color:var(--accent)}
 .row .caret{width:16px;text-align:center;color:var(--mute);flex:none;user-select:none}
 .row .nm{overflow:hidden;text-overflow:ellipsis;flex:1}
-.row .par{color:var(--mute);font-size:12px}
-.row .ct{color:var(--mute);font-size:12px;flex:none}
+.row .par,.row .ct{color:var(--mute);font-size:12px}
+.row .ct{flex:none}
 
 #gridwrap{position:relative;min-width:0;min-height:0}
 #grid{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden}
 #spacer{position:relative;width:100%}
-.cell{position:absolute;overflow:hidden;border-radius:6px;background:var(--panel2);cursor:pointer;outline:none}
+.cell{position:absolute;overflow:hidden;border-radius:6px;background:var(--panel2);cursor:pointer}
 .cell img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .18s;pointer-events:none}
 .cell img.ok{opacity:1}
 .cell.bad::after{content:"unsupported";position:absolute;inset:0;display:grid;place-items:center;color:var(--mute);font-size:12px}
 .cell:hover{box-shadow:0 0 0 2px var(--accent) inset}
 .cell .tag{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 4px;font-size:11px;color:#fff;background:linear-gradient(transparent,#000c);opacity:0;transition:opacity .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .cell:hover .tag{opacity:1}
-#empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:30px;color:var(--text);font-size:22px;letter-spacing:.08em;pointer-events:none}
-#empty[hidden]{display:none}
+.dh{position:absolute;left:6px;color:var(--mute);white-space:nowrap;pointer-events:none}
+#empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:30px;font-size:22px;letter-spacing:.08em;pointer-events:none}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1a0d12;border:1px solid #5a2a3a;color:#ffd7e2;padding:10px 16px;border-radius:10px;max-width:90vw;z-index:100;display:none}
 
-/* viewer */
 #viewer{position:fixed;inset:0;background:#000;z-index:50;display:none}
 #viewer.on{display:block}
-.vtop{position:absolute;top:0;left:0;right:0;display:flex;gap:8px;align-items:center;padding:10px 14px;background:linear-gradient(#000d,transparent);z-index:5;pointer-events:none}
+.vtop{position:absolute;top:0;left:0;right:0;display:flex;gap:8px;align-items:center;padding:10px 14px;background:linear-gradient(#000d,transparent);z-index:5;pointer-events:none;transition:opacity .25s ease}
 .vtop>*{pointer-events:auto}
-.vtop{transition:opacity .25s ease}
 .vtop.idle{opacity:0}
 .vtop.idle>*{pointer-events:none}
 .vtop .sp{flex:1}
 #vleft{display:flex;gap:12px;align-items:center;min-width:0}
-.vtop #vname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50vw}
-.vtop #vcount{color:var(--mute);white-space:nowrap}
-.vtop>button.icon,.vtop .menu>button.icon{background:#ffffff14;border-color:#ffffff1f}
-.vtop .menu.open>button.icon{background:var(--accent-bg);border-color:var(--accent)}
+#vname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50vw}
+#vcount{color:var(--mute);white-space:nowrap}
+.vtop>button.icon,.vtop .menu>button.icon{background:none;border:0}
+.vtop .menu.open>button.icon{background:none}
+.vtop>button.icon:hover,.vtop .menu>button.icon:hover{background:none;opacity:.7}
 #stage{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;touch-action:none}
 #stage.pan{cursor:move}
 #vimg{max-width:100%;max-height:100%;user-select:none;-webkit-user-drag:none;will-change:transform;pointer-events:none}
 #vmsg{position:absolute;inset:0;display:none;place-items:center;color:var(--mute);z-index:2;pointer-events:none}
-/* Info is a sub-page of the viewer options menu */
-#vInfo{display:none;padding:4px;font-size:13px;word-break:break-all}
+#vInfo{display:none;padding:4px;word-break:break-all}
 .pop.info #vMain{display:none}
 .pop.info #vInfo{display:block}
 .menu .pop.info{width:320px}
@@ -130,7 +115,6 @@ button.icon.on,.menu.open>button.icon{background:var(--accent-bg);border-color:v
 #vInfo button.icon{width:30px;height:30px}
 #vInfo button.icon svg{width:16px;height:16px}
 
-/* narrow screens: folders panel becomes an overlay */
 @media(max-width:800px){
   #main,#main.nosb{grid-template-columns:1fr}
   #side{position:absolute;left:0;top:0;bottom:0;width:290px;z-index:15}
@@ -183,10 +167,13 @@ button.icon.on,.menu.open>button.icon{background:var(--accent-bg);border-color:v
         </div>
         <div class="field">
           <label class="t" for="zoom">Thumbnail size</label>
-          <input type="range" id="zoom" min="90" max="360" value="190">
+          <div class="rng"><input type="range" id="zoom" min="90" max="360" value="190"><span id="zoomTip" hidden></span></div>
         </div>
         <div class="field chk">
           <label><input type="checkbox" id="subs" checked> Include subfolders</label>
+        </div>
+        <div class="field chk">
+          <label><input type="checkbox" id="showdates" checked> Show dates</label>
         </div>
       </div>
     </div>
@@ -201,13 +188,10 @@ button.icon.on,.menu.open>button.icon{background:var(--accent-bg);border-color:v
           <input type="number" id="minkb" min="0" value="20">
         </div>
         <div class="sep"></div>
-        <div class="field">
-          <label class="t" for="skip">Scan settings — folders to skip (comma-separated, exact folder names)</label>
-          <input type="text" id="skip" value="$RECYCLE.BIN, System Volume Information, .git, node_modules, __MACOSX, .Trash, .thumbnails, .cache">
-        </div>
-        <div class="note">Applies to the next folder you add. Supported types: JPG, PNG, GIF, WebP, BMP, AVIF, SVG.</div>
-        <div class="sep"></div>
-        <div class="note" id="appVersion">Version 1.0.0</div>
+        <div class="field chk">
+          <label><input type="checkbox" id="showall"> Show all</label>
+        </div>        <div class="sep"></div>
+        <div class="note">Version 1.0.7</div>
       </div>
     </div>
   </div>
@@ -282,9 +266,9 @@ const coll = new Intl.Collator(undefined, {numeric:true, sensitivity:'base'});
 const GAP = 6;
 
 const S = {
-  items: [], view: [], folder: null, subs: true, minKB: 20, q: '', fq: '',
+  items: [], view: [], folder: null, subs: true, minKB: 20, fq: '', dates: true,
   sort: 'dateDesc', size: 190, scanning: false, stop: false,
-  dirs: 0, errors: 0, dirty: false, expanded: new Set(), roots: new Set()
+  errors: 0, dirty: false, expanded: new Set(), roots: new Set()
 };
 
 const fmtN = n => n.toLocaleString();
@@ -297,10 +281,8 @@ function toast(msg, ms = 7000) {
   clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', ms);
 }
 
-/* ---------------------------------------------------------------- scanning */
-function getSkip() {
-  return new Set($('#skip').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
-}
+const SKIP = new Set(['$recycle.bin', 'system volume information', '.git', 'node_modules', '__macosx', '.trash', '.thumbnails', '.cache']);
+const getSkip = () => $('#showall').checked ? new Set() : SKIP;
 function uniqueRoot(name) {
   let n = name || 'Drive', k = 2;
   while (S.roots.has(n)) n = (name || 'Drive') + ' (' + k++ + ')';
@@ -308,7 +290,7 @@ function uniqueRoot(name) {
   return n;
 }
 function beginScan() {
-  S.scanning = true; S.stop = false; S.dirs = 0; S.errors = 0;
+  S.scanning = true; S.stop = false; S.errors = 0;
   $('#scanPill').hidden = false;
   $('#empty').hidden = true;
   startLiveRefresh();
@@ -329,31 +311,27 @@ async function addFolder() {
     toast('The browser would not open that folder (' + (e.message || e.name) + '). If it is a whole drive, try "Alternative picker", or add the drive\'s top-level folders one at a time.');
     return;
   }
-  const root = uniqueRoot(dir.name);
-  const skip = getSkip();
+  const root = uniqueRoot(dir.name), skip = getSkip();
   beginScan();
   let pending = [];
 
   async function walk(d, path) {
     if (S.stop) return;
-    S.dirs++;
     try {
       for await (const [name, h] of d.entries()) {
         if (S.stop) return;
         if (h.kind === 'directory') {
-          if (skip.has(name.toLowerCase())) continue;
-          await walk(h, path + '/' + name);
+          if (!skip.has(name.toLowerCase())) await walk(h, path + '/' + name);
         } else {
           const dot = name.lastIndexOf('.');
-          if (dot < 1 || name.startsWith('._')) continue;
-          if (!EXT.has(name.slice(dot + 1).toLowerCase())) continue;
+          if (dot < 1 || name.startsWith('._') || !EXT.has(name.slice(dot + 1).toLowerCase())) continue;
           pending.push(h.getFile().then(f => {
             S.items.push({name, folder: path, handle: h, size: f.size, mtime: f.lastModified});
           }).catch(() => { S.errors++; }));
           if (pending.length >= 24) { await Promise.all(pending); pending = []; }
         }
       }
-    } catch (e) { S.errors++; }
+    } catch { S.errors++; }
   }
 
   try { await walk(dir, root); await Promise.all(pending); }
@@ -365,8 +343,7 @@ $('#fallback').addEventListener('change', async () => {
   $('#fallback').value = '';
   if (!files.length) return;
   const skip = getSkip();
-  const firstRel = files[0].webkitRelativePath || files[0].name;
-  const root = uniqueRoot(firstRel.split('/')[0]);
+  const root = uniqueRoot((files[0].webkitRelativePath || files[0].name).split('/')[0]);
   beginScan();
   try {
     for (let i = 0; i < files.length; i++) {
@@ -379,7 +356,7 @@ $('#fallback').addEventListener('change', async () => {
           S.items.push({name, folder: parts.join('/'), file: f, size: f.size, mtime: f.lastModified});
         }
       }
-      if (i % 5000 === 0) { S.dirs = i; await tick(); }
+      if (i % 5000 === 0) await tick();
     }
   } finally { endScan(); }
 });
@@ -397,7 +374,6 @@ function startLiveRefresh() {
 }
 function stopLiveRefresh() { clearInterval(liveTimer); liveTimer = 0; }
 
-/* ----------------------------------------------------------- filter + sort */
 const SORTS = {
   dateDesc: (a, b) => b.mtime - a.mtime,
   dateAsc:  (a, b) => a.mtime - b.mtime,
@@ -405,24 +381,18 @@ const SORTS = {
   folder:   (a, b) => coll.compare(a.folder, b.folder) || coll.compare(a.name, b.name),
   sizeDesc: (a, b) => b.size - a.size
 };
-function passes(it, min, q) {
-  if (it.size < min) return false;
-  if (!q) return true;
-  return (it.lc || (it.lc = (it.folder + '/' + it.name).toLowerCase())).includes(q);
-}
 function computeView() {
-  const min = S.minKB * 1024, q = S.q.trim().toLowerCase(), f = S.folder, pre = f ? f + '/' : '';
+  const min = S.minKB * 1024, f = S.folder, pre = f ? f + '/' : '';
   const v = [];
   for (const it of S.items) {
-    if (!passes(it, min, q)) continue;
+    if (it.size < min) continue;
     if (f) {
       if (S.subs) { if (it.folder !== f && !it.folder.startsWith(pre)) continue; }
       else if (it.folder !== f) continue;
     }
     v.push(it);
   }
-  v.sort(SORTS[S.sort]);
-  return v;
+  return v.sort(SORTS[S.sort]);
 }
 
 function refresh() {
@@ -444,13 +414,12 @@ function renderStatus() {
   if (S.scanning) $('#scanText').textContent = 'Scanning… ' + fmtN(S.items.length) + ' found';
 }
 
-/* ------------------------------------------------------------------ sidebar */
 function renderSidebar() {
-  const min = S.minKB * 1024, q = S.q.trim().toLowerCase();
+  const min = S.minKB * 1024;
   const direct = new Map();
   let total = 0;
   for (const it of S.items) {
-    if (!passes(it, min, q)) continue;
+    if (it.size < min) continue;
     direct.set(it.folder, (direct.get(it.folder) || 0) + 1); total++;
   }
   const cum = new Map();
@@ -518,56 +487,138 @@ $('#tree').addEventListener('click', e => {
   refresh();
 });
 
-/* ------------------------------------------------- virtualised thumbnail grid */
 const grid = $('#grid'), spacer = $('#spacer');
-const live = new Map();   // index -> element
-let cols = 1, cell = 190, rowH = 196;
+const live = new Map(), liveH = new Map();
+let cols = 1, cell = 190, aspect = false, rs = [], re = [], rt = [], rh = [], rl = [];
+const ASPECT_MIN = 225, GUESS = 4 / 3, HDR = 34;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function clearLive() {
-  for (const el of live.values()) { if (el._it) { el._it._want = false; el._it._el = null; } el.remove(); }
+  for (const el of live.values()) { el._it._want = false; el._it._el = null; el.remove(); }
   live.clear();
+  for (const el of liveH.values()) el.remove();
+  liveH.clear();
 }
 function layout() {
   clearLive();
+  aspect = S.size > ASPECT_MIN;
   const w = grid.clientWidth - GAP * 2;
   cols = Math.max(1, Math.floor((w + GAP) / (S.size + GAP)));
   cell = (w - GAP * (cols - 1)) / cols;
-  rowH = cell + GAP;
-  spacer.style.height = (Math.ceil(S.view.length / cols) * rowH + GAP) + 'px';
+  pack();
   render();
+}
+function dk(it) {
+  if (!it.dk) {
+    const d = new Date(it.mtime);
+    it.dk = d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+  }
+  return it.dk;
+}
+function pack() {
+  const W = grid.clientWidth - GAP * 2, T = S.size, n = S.view.length;
+  rs = []; re = []; rt = []; rh = []; rl = [];
+  let y = GAP;
+  const row = (a, b, h, label) => { rs.push(a); re.push(b); rt.push(y); rh.push(h); rl.push(label); y += h + GAP; };
+  for (let a = 0, b; a < n; a = b) {
+    b = n;
+    if (S.dates) { const k = dk(S.view[a]); for (b = a + 1; b < n && dk(S.view[b]) === k; b++); row(a, a, HDR, k); }
+    if (!aspect) { for (let i = a; i < b; i += cols) row(i, Math.min(i + cols, b), cell); continue; }
+    let s = a, sum = 0;
+    for (let i = a; i < b; i++) {
+      const r = S.view[i].ar || GUESS, cnt = i - s;
+      const h = (W - GAP * cnt) / (sum + r);
+      if (h >= T) { sum += r; continue; }
+      const prev = cnt ? (W - GAP * (cnt - 1)) / sum : 0;
+      if (cnt && prev - T < T - h) { row(s, i, prev); s = i; sum = r; }
+      else { row(s, i + 1, h); s = i + 1; sum = 0; }
+    }
+    if (s < b) row(s, b, Math.min(T, (W - GAP * (b - s - 1)) / sum));
+  }
+  spacer.style.height = y + 'px';
+}
+function rowAt(y) {
+  let lo = 0, hi = rs.length - 1;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (rt[m] + rh[m] > y) hi = m; else lo = m + 1; }
+  return lo;
+}
+function rowOf(i) {
+  let lo = 0, hi = rs.length - 1;
+  while (lo < hi) { const m = (lo + hi + 1) >> 1; if (rs[m] <= i) lo = m; else hi = m - 1; }
+  return lo;
+}
+let reflowT = 0;
+function reflow() {
+  if (reflowT) return;
+  reflowT = setTimeout(() => {
+    reflowT = 0;
+    if (!aspect || !rs.length) return;
+    let r = rowAt(grid.scrollTop);
+    while (r < rs.length - 1 && rl[r] !== undefined) r++;
+    const a = rs[r], off = rt[r] - grid.scrollTop;
+    pack();
+    grid.scrollTop = rt[rowOf(a)] - off;
+    render();
+  }, 120);
 }
 let rafId = 0;
 grid.addEventListener('scroll', () => { if (!rafId) rafId = requestAnimationFrame(() => { rafId = 0; render(); }); });
 new ResizeObserver(() => { if (grid.clientWidth) layout(); }).observe(grid);
 
+function mk(i) {
+  const it = S.view[i];
+  const el = document.createElement('div');
+  el.className = 'cell' + (it.bad ? ' bad' : '');
+  el.dataset.i = i;
+  const img = document.createElement('img'); img.alt = ''; img.draggable = false;
+  img.onload = () => img.classList.add('ok');
+  const tag = document.createElement('div'); tag.className = 'tag'; tag.textContent = it.name;
+  el.append(img, tag);
+  el._it = it; el._img = img; it._el = el;
+  if (it.thumb) { img.src = it.thumb; touchThumb(it); }
+  else if (!it.bad) want(it);
+  return el;
+}
 function render() {
   const n = S.view.length;
-  const top = grid.scrollTop, h = grid.clientHeight;
-  const r0 = Math.max(0, Math.floor((top - GAP) / rowH) - 2);
-  const r1 = Math.ceil((top + h) / rowH) + 2;
-  const i0 = r0 * cols, i1 = Math.min(n, r1 * cols);
+  if (!rs.length) return;
+  const top = grid.scrollTop, h = grid.clientHeight, buf = S.size * 2;
+  const r0 = rowAt(top - buf);
+  let r1 = r0;
+  while (r1 < rs.length && rt[r1] < top + h + buf) r1++;
+  const i0 = rs[r0], i1 = r1 < rs.length ? rs[r1] : n;
   for (const [i, el] of live) {
     if (i < i0 || i >= i1) { el._it._want = false; el._it._el = null; el.remove(); live.delete(i); }
   }
   const frag = document.createDocumentFragment();
-  for (let i = i0; i < i1; i++) {
-    if (live.has(i)) continue;
-    const it = S.view[i];
-    const el = document.createElement('div');
-    el.className = 'cell' + (it.bad ? ' bad' : '');
-    el.style.width = el.style.height = cell + 'px';
-    el.style.left = (GAP + (i % cols) * (cell + GAP)) + 'px';
-    el.style.top = (GAP + Math.floor(i / cols) * rowH) + 'px';
-    el.dataset.i = i;
-    const img = document.createElement('img'); img.alt = ''; img.draggable = false;
-    img.onload = () => img.classList.add('ok');
-    const tag = document.createElement('div'); tag.className = 'tag'; tag.textContent = it.name;
-    el.append(img, tag);
-    el._it = it; el._img = img; it._el = el;
-    if (it.thumb) { img.src = it.thumb; touchThumb(it); }
-    else if (!it.bad) want(it);
-    live.set(i, el); frag.appendChild(el);
+  const put = (i, x, y, w, ht) => {
+    let el = live.get(i);
+    if (!el) { el = mk(i); live.set(i, el); frag.appendChild(el); }
+    if (el._x === x && el._y === y && el._w === w && el._h === ht) return;
+    el._x = x; el._y = y; el._w = w; el._h = ht;
+    const s = el.style;
+    s.left = x + 'px'; s.top = y + 'px'; s.width = w + 'px'; s.height = ht + 'px';
+  };
+  const seen = new Set();
+  for (let r = r0; r < r1; r++) {
+    if (rl[r] !== undefined) {
+      const k = rs[r]; seen.add(k);
+      let el = liveH.get(k);
+      if (!el) {
+        el = document.createElement('div'); el.className = 'dh'; el.textContent = rl[r];
+        el.style.height = el.style.lineHeight = HDR + 'px';
+        liveH.set(k, el); frag.appendChild(el);
+      }
+      el.style.top = rt[r] + 'px';
+      continue;
+    }
+    let x = GAP;
+    for (let i = rs[r]; i < re[r]; i++) {
+      const w = aspect ? (S.view[i].ar || GUESS) * rh[r] : cell;
+      put(i, x, rt[r], w, rh[r]); x += w + GAP;
+    }
   }
+  for (const [k, el] of liveH) if (!seen.has(k)) { el.remove(); liveH.delete(k); }
   spacer.appendChild(frag);
 }
 spacer.addEventListener('click', e => {
@@ -575,14 +626,14 @@ spacer.addEventListener('click', e => {
 });
 function scrollToIndex(i) {
   if (i < 0) return;
-  const rowTop = Math.floor(i / cols) * rowH, h = grid.clientHeight;
-  if (rowTop < grid.scrollTop || rowTop + rowH > grid.scrollTop + h) grid.scrollTop = Math.max(0, rowTop - (h - rowH) / 2);
+  if (!rs.length) return;
+  const r = rowOf(i), rowTop = rt[r], rowBox = rh[r] + GAP, h = grid.clientHeight;
+  if (rowTop < grid.scrollTop || rowTop + rowBox > grid.scrollTop + h) grid.scrollTop = Math.max(0, rowTop - (h - rowBox) / 2);
   render();
 }
 
-/* ---------------------------------------------------------------- thumbnails */
-const THUMB = 320, DECODE_W = 480, THUMB_CAP = 2500;
-const tq = []; let tActive = 0; const thumbList = [];
+const THUMB = 320, MAXSIDE = 960, DECODE_W = 480, THUMB_CAP = 2500;
+const tq = [], thumbList = []; let tActive = 0;
 const getFile = it => it.file ? Promise.resolve(it.file) : it.handle.getFile();
 
 function want(it) { it._want = true; tq.push(it); pump(); }
@@ -591,7 +642,8 @@ function pump() {
     const it = tq.pop();
     if (!it._want || it.thumb || it.bad || it._busy) continue;
     it._busy = true; tActive++;
-    makeThumb(it).then(url => { it.thumb = url; thumbList.push(it); trim(); })
+    const known = !!it.ar;
+    makeThumb(it).then(url => { it.thumb = url; thumbList.push(it); trim(); if (aspect && !known) reflow(); })
       .catch(() => { it.bad = true; })
       .finally(() => { it._busy = false; tActive--; paint(it); pump(); });
   }
@@ -611,11 +663,11 @@ function paint(it) {
 }
 async function makeThumb(it) {
   const f = await getFile(it);
-  let src, w, h, cleanup = null;
+  let src, w, h, cleanup;
   try {
     const bmp = await createImageBitmap(f, {resizeWidth: DECODE_W, resizeQuality: 'medium'});
     src = bmp; w = bmp.width; h = bmp.height; cleanup = () => bmp.close();
-  } catch (_) {
+  } catch {
     const url = URL.createObjectURL(f);
     cleanup = () => URL.revokeObjectURL(url);
     const img = new Image(); img.src = url;
@@ -624,21 +676,23 @@ async function makeThumb(it) {
     if (!w || !h) { cleanup(); throw new Error('no size'); }
   }
   try {
-    const c = document.createElement('canvas'); c.width = c.height = THUMB;
+    const sc = Math.min(THUMB / Math.min(w, h), MAXSIDE / Math.max(w, h));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * sc)); c.height = Math.max(1, Math.round(h * sc));
     const ctx = c.getContext('2d');
-    const sc = Math.max(THUMB / w, THUMB / h), dw = w * sc, dh = h * sc;
-    ctx.fillStyle = '#0f0f0f'; ctx.fillRect(0, 0, THUMB, THUMB);
-    ctx.drawImage(src, (THUMB - dw) / 2, (THUMB - dh) / 2, dw, dh);
+    ctx.fillStyle = '#0f0f0f'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(src, 0, 0, c.width, c.height);
+    it.ar = w / h;
     const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
     if (!blob) throw new Error('encode failed');
     return URL.createObjectURL(blob);
-  } finally { cleanup && cleanup(); }
+  } finally { cleanup(); }
 }
 
-/* -------------------------------------------------------------------- viewer */
 const V = {open: false, i: 0, it: null, scale: 1, tx: 0, ty: 0, token: 0, timer: 0};
-const vimg = $('#vimg'), stage = $('#stage');
+const vimg = $('#vimg'), stage = $('#stage'), vtopEl = $('#vtop');
 const fullList = new Set();
+let lastM = null, barT = 0, nearTop = false;
 
 function fullUrl(it) {
   if (it._full) return Promise.resolve(it._full);
@@ -654,10 +708,9 @@ function evict(keep) {
     fullList.delete(it);
   }
 }
-/* keep the picture covering the view: never pan past its own edges */
 function clampT() {
-  const sw = vimg.clientWidth * V.scale, sh = vimg.clientHeight * V.scale;
-  const mx = Math.max(0, (sw - stage.clientWidth) / 2), my = Math.max(0, (sh - stage.clientHeight) / 2);
+  const mx = Math.max(0, (vimg.clientWidth * V.scale - stage.clientWidth) / 2);
+  const my = Math.max(0, (vimg.clientHeight * V.scale - stage.clientHeight) / 2);
   V.tx = Math.max(-mx, Math.min(mx, V.tx));
   V.ty = Math.max(-my, Math.min(my, V.ty));
 }
@@ -683,8 +736,8 @@ async function show(i) {
   try {
     const url = await fullUrl(it);
     if (tok !== V.token) return;
-    vimg.style.visibility = 'visible'; vimg.src = url;
-  } catch (e) {
+    vimg.src = url;
+  } catch {
     if (tok !== V.token) return;
     vimg.removeAttribute('src'); $('#vmsg').style.display = 'grid';
   }
@@ -714,7 +767,7 @@ $('#iBack').onclick = () => $('#vpop').classList.remove('info');
 $('#vfs').onclick = () => { closeMenus(); document.fullscreenElement ? document.exitFullscreen() : $('#viewer').requestFullscreen().catch(() => {}); };
 $('#iCopy').onclick = async () => {
   const it = V.it; if (!it) return;
-  try { await navigator.clipboard.writeText(it.folder + '/' + it.name); toast('Path copied', 1500); } catch (_) {}
+  try { await navigator.clipboard.writeText(it.folder + '/' + it.name); toast('Path copied', 1500); } catch {}
 };
 function startSlide() {
   $('#vplayLbl').textContent = 'Stop slideshow';
@@ -733,18 +786,12 @@ function zoomAt(cx, cy, f) {
   else { V.tx = px - (px - V.tx) * (ns / V.scale); V.ty = py - (py - V.ty) * (ns / V.scale); }
   V.scale = ns; applyT();
 }
-/* wheel = zoom toward the mouse pointer */
 $('#viewer').addEventListener('wheel', e => {
   if (e.target.closest('.pop')) return;
   e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.18 : 1 / 1.18);
 }, {passive: false});
 stage.addEventListener('dblclick', e => { if (V.scale > 1) resetZoom(); else zoomAt(e.clientX, e.clientY, 2.5); });
 
-/* hold SHIFT and move the mouse to pan (no button needed, so the browser never drags the picture) */
-let lastM = null, barT = 0, nearTop = false;
-const vtopEl = $('#vtop');
-
-/* top bar (name, counter, options, close) fades out after a moment; move the mouse near the top to bring it back */
 function barShow() { vtopEl.classList.remove('idle'); clearTimeout(barT); barT = 0; }
 function barArm() {
   if (barT) return;
@@ -766,11 +813,10 @@ document.addEventListener('keydown', updPan);
 document.addEventListener('keyup', updPan);
 window.addEventListener('blur', () => stage.classList.remove('pan'));
 
-/* touch screens: drag to pan when zoomed, swipe to change photo */
 let tdrag = null;
 stage.addEventListener('pointerdown', e => {
   if (e.pointerType !== 'touch') return;
-  barShow(); barArm();   /* touch screens: any tap brings the bar back */
+  barShow(); barArm();
   stage.setPointerCapture(e.pointerId);
   tdrag = {x: e.clientX, y: e.clientY, tx: V.tx, ty: V.ty};
 });
@@ -809,11 +855,10 @@ document.addEventListener('keydown', e => {
   if (k.startsWith('Arrow') || k === ' ') e.preventDefault();
 });
 
-/* ------------------------------------------------------------- icon menus */
 const menus = Array.from(document.querySelectorAll('.menu'));
-function closeMenus(except) {
-  for (const m of menus) if (m !== except) m.classList.remove('open');
-  if (!$('#menuViewer').classList.contains('open')) $('#vpop').classList.remove('info');  /* Info always reopens on the main options page */
+function closeMenus() {
+  for (const m of menus) m.classList.remove('open');
+  $('#vpop').classList.remove('info');
 }
 for (const m of menus) {
   m.querySelector('button.icon').addEventListener('click', e => {
@@ -823,9 +868,8 @@ for (const m of menus) {
   });
   m.querySelector('.pop').addEventListener('click', e => e.stopPropagation());
 }
-document.addEventListener('click', () => closeMenus());
+document.addEventListener('click', closeMenus);
 
-/* ------------------------------------------------------ folders side panel */
 const mainEl = $('#main');
 function setSide(open) {
   mainEl.classList.toggle('nosb', !open);
@@ -833,9 +877,7 @@ function setSide(open) {
 }
 $('#btnSide').onclick = e => { e.stopPropagation(); closeMenus(); setSide(mainEl.classList.contains('nosb')); };
 $('#sideClose').onclick = () => setSide(false);
-setSide(false);   /* folders panel starts closed */
 
-/* ------------------------------------------------------------------ controls */
 $('#btnAdd').onclick = () => { closeMenus(); addFolder(); };
 $('#btnCompat').onclick = () => { closeMenus(); $('#fallback').click(); };
 $('#btnStop').onclick = () => { S.stop = true; };
@@ -853,7 +895,17 @@ $('#fq').addEventListener('input', e => { S.fq = e.target.value; deb(renderSideb
 $('#sort').addEventListener('change', e => { S.sort = e.target.value; grid.scrollTop = 0; refresh(); });
 $('#subs').addEventListener('change', e => { S.subs = e.target.checked; grid.scrollTop = 0; refresh(); });
 $('#minkb').addEventListener('input', e => { S.minKB = Math.max(0, +e.target.value || 0); deb(() => { grid.scrollTop = 0; refresh(); }); });
-$('#zoom').addEventListener('input', e => { S.size = +e.target.value; layout(); });
+const zoom = $('#zoom'), zoomTip = $('#zoomTip');
+function showTip() {
+  const p = (zoom.value - zoom.min) / (zoom.max - zoom.min);
+  zoomTip.textContent = Math.round(p * 100) + '%';
+  zoomTip.style.left = (8 + p * (zoom.clientWidth - 16)) + 'px';
+  zoomTip.hidden = false;
+}
+zoom.addEventListener('input', () => { S.size = +zoom.value; showTip(); layout(); });
+zoom.addEventListener('pointerdown', showTip);
+for (const ev of ['change', 'pointerup', 'blur']) zoom.addEventListener(ev, () => { zoomTip.hidden = true; });
+$('#showdates').addEventListener('change', e => { S.dates = e.target.checked; grid.scrollTop = 0; layout(); });
 
 if (!window.showDirectoryPicker) {
   $('#btnCompat').hidden = true;
